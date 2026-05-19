@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kairos — Visual Recovery Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600;700&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --obsidian:     #0B0F14;
+      --deep:         #0D1219;
+      --surface:      #131A23;
+      --surface-lt:   #1C2535;
+      --blue:         #3B82F6;
+      --blue-soft:    rgba(59,130,246,0.12);
+      --blue-glow:    rgba(59,130,246,0.35);
+      --green:        #22C55E;
+      --green-soft:   rgba(34,197,94,0.12);
+      --green-glow:   rgba(34,197,94,0.35);
+      --red:          #EF4444;
+      --orange:       #F97316;
+      --lime:         #84CC16;
+      --white:        #F8FAFC;
+      --muted:        #64748B;
+      --muted-lt:     #94A3B8;
+      --border:       rgba(255,255,255,0.06);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--obsidian);
+      color: var(--white);
+      font-family: 'Barlow', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* grain overlay */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 9999;
+      pointer-events: none;
+      opacity: 0.028;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.88' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 160px 160px;
+    }
+
+    /* ─── REVEAL SYSTEM ─────────────────────────────────── */
+    .rv {
+      opacity: 0;
+      transform: translateY(32px);
+      transition: opacity 0.75s cubic-bezier(0.16,1,0.3,1),
+                  transform 0.75s cubic-bezier(0.16,1,0.3,1);
+    }
+    .rv.in { opacity: 1; transform: none; }
+    .d1 { transition-delay: 0.1s; }
+    .d2 { transition-delay: 0.2s; }
+    .d3 { transition-delay: 0.3s; }
+    .d4 { transition-delay: 0.4s; }
+    .d5 { transition-delay: 0.5s; }
+
+    /* ─── LAYOUT ────────────────────────────────────────── */
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 0 52px; }
+
+    section { position: relative; }
+
+    /* ─── NAV ───────────────────────────────────────────── */
+    .nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 900;
+      height: 70px; padding: 0 52px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(11,15,20,0.75);
+      backdrop-filter: blur(24px) saturate(160%);
+      -webkit-backdrop-filter: blur(24px) saturate(160%);
+      border-bottom: 1px solid rgba(255,255,255,0.045);
+      transition: background 0.3s;
+    }
+    .nav.scrolled { background: rgba(11,15,20,0.96); }
+
+    .nav-logo { display: flex; align-items: center; text-decoration: none; }
+    .nav-logo img {
+      height: 42px;
+      mix-blend-mode: screen;
+      filter: brightness(1.08) contrast(1.05);
+    }
+
+    .nav-links { display: flex; align-items: center; gap: 38px; list-style: none; }
+    .nav-links a {
+      font-size: 12px; font-weight: 600;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--muted-lt); text-decoration: none;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--white); }
+
+    /* ─── BUTTONS ───────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 11px 24px; border-radius: 6px;
+      font-family: 'Barlow', sans-serif;
+      font-weight: 600; font-size: 13px; letter-spacing: 0.07em;
+      text-transform: uppercase; text-decoration: none;
+      border: none; cursor: pointer;
+      transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1),
+                  box-shadow 0.25s ease, background 0.2s;
+    }
+    .btn:active { transform: scale(0.97) translateY(1px) !important; }
+    .btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+
+    .btn-green {
+      background: linear-gradient(135deg, #22C55E 0%, #16A34A 100%);
+      color: #fff;
+      box-shadow: 0 2px 14px rgba(34,197,94,0.28), inset 0 1px 0 rgba(255,255,255,0.15);
+    }
+    .btn-green:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(34,197,94,0.42), inset 0 1px 0 rgba(255,255,255,0.2);
+    }
+
+    .btn-blue {
+      background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+      color: #fff;
+      box-shadow: 0 2px 14px rgba(59,130,246,0.28), inset 0 1px 0 rgba(255,255,255,0.15);
+    }
+    .btn-blue:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(59,130,246,0.42), inset 0 1px 0 rgba(255,255,255,0.2);
+    }
+
+    .btn-ghost {
+      background: transparent; color: var(--white);
+      border: 1px solid rgba(255,255,255,0.14);
+    }
+    .btn-ghost:hover {
+      background: rgba(255,255,255,0.05);
+      border-color: rgba(255,255,255,0.28);
+      transform: translateY(-1px);
+    }
+
+    /* ─── SECTION LABEL ─────────────────────────────────── */
+    .label {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px; font-weight: 500;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--blue);
+    }
+    .label::before {
+      content: ''; width: 20px; height: 1px;
+      background: currentColor; flex-shrink: 0;
+    }
+
+    .sh {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900; line-height: 0.95;
+      letter-spacing: -0.025em;
+      color: var(--white);
+    }
+
+    /* ══════════════════════════════════════════════════════
+       HERO
+    ══════════════════════════════════════════════════════ */
+    .hero {
+      min-height: 100vh;
+      display: flex; align-items: center;
+      padding-top: 70px;
+      position: relative;
+    }
+
+    .hero-bg {
+      position: absolute; inset: 0;
+      background: url('brand_assets/human%20images/man%20workout.png') center right / cover no-repeat;
+      filter: brightness(1.25);
+    }
+    .hero-bg::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(
+        108deg,
+        rgba(11,15,20,1)    0%,
+        rgba(11,15,20,0.96) 32%,
+        rgba(11,15,20,0.65) 55%,
+        rgba(11,15,20,0.18) 100%
+      );
+    }
+
+    .hero-ambient {
+      position: absolute; top: -160px; left: -160px;
+      width: 680px; height: 680px;
+      background: radial-gradient(circle, rgba(59,130,246,0.07) 0%, transparent 65%);
+      pointer-events: none;
+    }
+
+    .hero-inner {
+      position: relative; z-index: 2;
+      width: 100%; max-width: 1200px;
+      margin: 0 auto; padding: 0 52px;
+      display: grid;
+      grid-template-columns: 1fr 440px;
+      gap: 96px;
+      align-items: center;
+    }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 9px;
+      padding: 6px 16px 6px 12px;
+      background: rgba(34,197,94,0.08);
+      border: 1px solid rgba(34,197,94,0.22);
+      border-radius: 100px;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--green);
+      margin-bottom: 28px;
+    }
+    .hero-badge-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green);
+      animation: blink 2.2s ease-in-out infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.65); }
+    }
+
+    .hero-h1 {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900;
+      font-size: clamp(60px, 6.5vw, 96px);
+      line-height: 0.92;
+      letter-spacing: -0.03em;
+      color: var(--white);
+      margin-bottom: 26px;
+    }
+    .hero-h1 .g {
+      background: linear-gradient(90deg, #3B82F6 0%, #22C55E 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      font-size: 17px; font-weight: 400;
+      line-height: 1.68; color: var(--muted-lt);
+      max-width: 460px; margin-bottom: 38px;
+    }
+
+    .hero-actions {
+      display: flex; align-items: center; gap: 14px;
+      flex-wrap: wrap; margin-bottom: 56px;
+    }
+
+    .hero-stats { display: flex; gap: 0; }
+    .h-stat {
+      padding: 0 32px;
+      border-right: 1px solid rgba(255,255,255,0.08);
+    }
+    .h-stat:first-child { padding-left: 0; }
+    .h-stat:last-child { border-right: none; }
+
+    .h-stat-num {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 800; font-size: 30px;
+      letter-spacing: -0.02em; color: var(--white);
+      line-height: 1;
+    }
+    .h-stat-lbl {
+      font-size: 10px; font-weight: 500;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); margin-top: 5px;
+      line-height: 1.4;
+    }
+
+    /* ─── PHONE MOCKUP ──────────────────────────────────── */
+    .phone-col {
+      position: relative;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .phone-glow {
+      position: absolute;
+      width: 380px; height: 380px; border-radius: 50%;
+      background: radial-gradient(circle,
+        rgba(59,130,246,0.16) 0%,
+        rgba(34,197,94,0.09) 45%,
+        transparent 70%);
+      pointer-events: none;
+    }
+
+    .phone-float { animation: float 5.5s ease-in-out infinite; }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) rotate(-0.8deg); }
+      50% { transform: translateY(-18px) rotate(0.8deg); }
+    }
+
+    .phone {
+      position: relative; width: 272px;
+      background: linear-gradient(150deg, #1C2535 0%, #0D1219 100%);
+      border-radius: 52px;
+      padding: 13px;
+      box-shadow:
+        0 0 0 1.5px rgba(255,255,255,0.11),
+        0 0 0 3px rgba(0,0,0,0.55),
+        0 48px 96px rgba(0,0,0,0.72),
+        0 0 64px rgba(59,130,246,0.1),
+        inset 0 1px 0 rgba(255,255,255,0.07);
+    }
+
+    .phone-screen {
+      border-radius: 40px; overflow: hidden;
+      background: #080C10; position: relative;
+    }
+    .phone-screen img {
+      width: 100%; display: block;
+      height: 540px;
+      object-fit: cover;
+      object-position: left center;
+    }
+
+    .phone-island {
+      position: absolute; top: 20px;
+      left: 50%; transform: translateX(-50%);
+      width: 96px; height: 28px;
+      background: #000; border-radius: 18px; z-index: 5;
+    }
+
+    .phone::before {
+      content: '';
+      position: absolute; right: -3.5px; top: 96px;
+      width: 3.5px; height: 66px;
+      background: linear-gradient(180deg, #1C2535, #2A3445, #1C2535);
+      border-radius: 0 3px 3px 0;
+    }
+    .phone::after {
+      content: '';
+      position: absolute; left: -3.5px; top: 78px;
+      width: 3.5px; height: 38px;
+      background: linear-gradient(180deg, #1C2535, #2A3445, #1C2535);
+      border-radius: 3px 0 0 3px;
+      box-shadow: 0 50px 0 #1C2535, 0 52px 0 #2A3445, 0 90px 0 #1C2535;
+    }
+
+    .p-tag {
+      position: absolute;
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px;
+      background: rgba(13,18,25,0.92);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 14px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+      white-space: nowrap; z-index: 10;
+    }
+    .p-tag-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .p-tag-title { font-size: 12px; font-weight: 600; color: var(--white); }
+    .p-tag-sub { font-size: 10px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 1px; }
+    .pt-left { bottom: 72px; left: -84px; border-color: rgba(239,68,68,0.22); }
+    .pt-right { top: 96px; right: -80px; border-color: rgba(34,197,94,0.22); }
+
+    /* ══════════════════════════════════════════════════════
+       STATS BAR
+    ══════════════════════════════════════════════════════ */
+    .stats-bar {
+      background: var(--deep);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 64px 0;
+    }
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+    }
+    .st {
+      text-align: center; padding: 32px 40px;
+      border-right: 1px solid var(--border);
+    }
+    .st:last-child { border-right: none; }
+    .st-num {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900; font-size: 68px;
+      line-height: 1; letter-spacing: -0.04em;
+      color: var(--white); margin-bottom: 10px;
+    }
+    .st-num span { color: var(--blue); }
+    .st-desc {
+      font-size: 13px; line-height: 1.6;
+      color: var(--muted-lt);
+      max-width: 220px; margin: 0 auto;
+    }
+
+    /* ══════════════════════════════════════════════════════
+       PROBLEM
+    ══════════════════════════════════════════════════════ */
+    .problem { padding: 128px 0; }
+    .problem-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 96px; align-items: center;
+    }
+    .problem-h { font-size: clamp(44px, 4.5vw, 68px); margin: 16px 0 22px; }
+    .problem-body {
+      font-size: 16px; line-height: 1.72;
+      color: var(--muted-lt); margin-bottom: 36px;
+    }
+    .pcards { display: flex; flex-direction: column; gap: 14px; }
+    .pcard {
+      display: flex; align-items: flex-start; gap: 16px;
+      padding: 18px 22px;
+      background: rgba(255,255,255,0.018);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      transition: border-color 0.25s, background 0.25s, transform 0.25s;
+    }
+    .pcard:hover {
+      border-color: rgba(239,68,68,0.22);
+      background: rgba(239,68,68,0.03);
+      transform: translateX(4px);
+    }
+    .pcard-icon {
+      width: 38px; height: 38px; border-radius: 9px; flex-shrink: 0;
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.18);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px;
+    }
+    .pcard-title { font-weight: 600; font-size: 14px; color: var(--white); margin-bottom: 3px; }
+    .pcard-desc { font-size: 13px; color: var(--muted); line-height: 1.55; }
+
+    .problem-img {
+      position: relative; border-radius: 18px; overflow: hidden;
+    }
+    .problem-img img {
+      width: 100%; height: 520px;
+      object-fit: cover; object-position: center top; display: block;
+      filter: brightness(1.3);
+    }
+    .problem-img::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(180deg, transparent 50%, rgba(11,15,20,0.92) 100%);
+    }
+    .problem-img-badge {
+      position: absolute; bottom: 28px; left: 28px; z-index: 2;
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 18px;
+      background: rgba(13,18,25,0.9);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      backdrop-filter: blur(12px);
+    }
+    .problem-img-badge .dot {
+      width: 9px; height: 9px; border-radius: 50%;
+      background: var(--red);
+      box-shadow: 0 0 10px rgba(239,68,68,0.6);
+      flex-shrink: 0;
+    }
+    .problem-img-badge .bdg-text { font-size: 13px; font-weight: 600; color: var(--white); }
+    .problem-img-badge .bdg-sub { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 2px; }
+
+    /* ══════════════════════════════════════════════════════
+       RECOVERY SYSTEM
+    ══════════════════════════════════════════════════════ */
+    .recovery {
+      padding: 128px 0;
+      background: linear-gradient(180deg, var(--deep) 0%, var(--obsidian) 50%, var(--deep) 100%);
+    }
+    .recovery-head { text-align: center; margin-bottom: 80px; }
+    .recovery-head .sh { font-size: clamp(42px, 4.5vw, 66px); margin-top: 16px; }
+    .recovery-head p {
+      font-size: 16px; color: var(--muted-lt);
+      line-height: 1.68; max-width: 520px;
+      margin: 18px auto 0;
+    }
+
+    .recovery-layout {
+      display: grid;
+      grid-template-columns: 220px 1fr 220px;
+      gap: 40px; align-items: center;
+    }
+    .recovery-img img {
+      width: 100%; border-radius: 16px;
+      box-shadow:
+        0 0 0 1px rgba(59,130,246,0.1),
+        0 48px 96px rgba(0,0,0,0.55),
+        0 0 80px rgba(59,130,246,0.07);
+    }
+
+    .callouts { display: flex; flex-direction: column; gap: 16px; }
+    .callout {
+      display: flex; align-items: center; gap: 13px;
+      padding: 14px 18px;
+      background: rgba(13,18,25,0.8);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .callout:hover { transform: scale(1.02); }
+    .c-dot {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    }
+    .c-label { font-size: 13px; font-weight: 600; color: var(--white); }
+    .c-sub { font-size: 10px; color: var(--muted); font-family: 'DM Mono', monospace; margin-top: 2px; }
+
+    /* ══════════════════════════════════════════════════════
+       HOW IT WORKS
+    ══════════════════════════════════════════════════════ */
+    .hiw { padding: 128px 0; }
+    .hiw-head { text-align: center; margin-bottom: 80px; }
+    .hiw-head .sh { font-size: clamp(36px, 3.5vw, 58px); margin-top: 16px; }
+
+    .steps {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      position: relative;
+    }
+    .steps::before {
+      content: '';
+      position: absolute; top: 27px; left: 12%; right: 12%;
+      height: 1px;
+      background: linear-gradient(90deg,
+        transparent,
+        rgba(59,130,246,0.3) 25%,
+        rgba(34,197,94,0.3) 75%,
+        transparent);
+    }
+
+    .step { padding: 0 20px; text-align: center; }
+    .step-num {
+      width: 54px; height: 54px; margin: 0 auto 22px;
+      background: var(--surface);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; position: relative; z-index: 1;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .step:hover .step-num {
+      border-color: var(--blue);
+      box-shadow: 0 0 20px rgba(59,130,246,0.2);
+    }
+    .step-title {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700; font-size: 18px;
+      letter-spacing: 0.01em; margin-bottom: 10px;
+    }
+    .step-desc { font-size: 13px; line-height: 1.65; color: var(--muted); }
+
+    /* ══════════════════════════════════════════════════════
+       FEATURES
+    ══════════════════════════════════════════════════════ */
+    .features {
+      padding: 128px 0;
+      background: linear-gradient(180deg, var(--obsidian), var(--deep));
+    }
+    .features-head { text-align: center; margin-bottom: 72px; }
+    .features-head .sh { font-size: clamp(36px, 3.5vw, 58px); margin-top: 16px; }
+
+    .feat-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+    .feat {
+      padding: 36px;
+      background: rgba(255,255,255,0.018);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      position: relative; overflow: hidden;
+      transition: transform 0.3s cubic-bezier(0.16,1,0.3,1), border-color 0.3s;
+    }
+    .feat::before {
+      content: ''; position: absolute;
+      top: 0; left: 0; right: 0; height: 2px;
+    }
+    .feat::after {
+      content: ''; position: absolute;
+      inset: 0; opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+    .feat:hover { transform: translateY(-5px); }
+    .feat:hover::after { opacity: 1; }
+
+    .feat.fb::before { background: linear-gradient(90deg, var(--blue), transparent 70%); }
+    .feat.fr::before { background: linear-gradient(90deg, var(--red), transparent 70%); }
+    .feat.fo::before { background: linear-gradient(90deg, var(--orange), transparent 70%); }
+    .feat.fg::before { background: linear-gradient(90deg, var(--green), transparent 70%); }
+
+    .feat.fb:hover { border-color: rgba(59,130,246,0.28); }
+    .feat.fr:hover { border-color: rgba(239,68,68,0.28); }
+    .feat.fo:hover { border-color: rgba(249,115,22,0.28); }
+    .feat.fg:hover { border-color: rgba(34,197,94,0.28); }
+
+    .feat.fb::after { background: radial-gradient(ellipse at top left, rgba(59,130,246,0.05), transparent 60%); }
+    .feat.fr::after { background: radial-gradient(ellipse at top left, rgba(239,68,68,0.05), transparent 60%); }
+    .feat.fo::after { background: radial-gradient(ellipse at top left, rgba(249,115,22,0.05), transparent 60%); }
+    .feat.fg::after { background: radial-gradient(ellipse at top left, rgba(34,197,94,0.05), transparent 60%); }
+
+    .feat-icon { font-size: 28px; margin-bottom: 18px; }
+    .feat-title {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700; font-size: 22px;
+      letter-spacing: 0.01em; margin-bottom: 10px;
+    }
+    .feat-desc { font-size: 14px; line-height: 1.68; color: var(--muted-lt); }
+
+    /* ══════════════════════════════════════════════════════
+       ATHLETE
+    ══════════════════════════════════════════════════════ */
+    .athlete { padding: 128px 0; }
+    .athlete-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 96px; align-items: center;
+    }
+    .athlete-img-wrap {
+      position: relative; border-radius: 18px; overflow: hidden;
+    }
+    .athlete-img-wrap img {
+      width: 100%; height: 520px;
+      object-fit: cover; display: block;
+      filter: brightness(1.25);
+    }
+    .athlete-img-wrap::after {
+      content: ''; position: absolute; inset: 0;
+      background:
+        linear-gradient(to right, transparent 55%, rgba(11,15,20,0.92) 100%),
+        linear-gradient(to top, rgba(11,15,20,0.3) 0%, transparent 25%);
+    }
+
+    .athlete-q {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 800; line-height: 1.04;
+      letter-spacing: -0.025em;
+      font-size: clamp(38px, 3.8vw, 56px);
+      margin: 18px 0 22px;
+    }
+    .athlete-q .hi { color: var(--green); }
+    .athlete-body {
+      font-size: 16px; line-height: 1.72;
+      color: var(--muted-lt); margin-bottom: 34px;
+    }
+    .chips { display: flex; flex-wrap: wrap; gap: 10px; }
+    .chip {
+      padding: 6px 14px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 100px;
+      font-size: 12px; font-weight: 500;
+      color: var(--muted-lt); letter-spacing: 0.04em;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .chip:hover { border-color: rgba(34,197,94,0.35); color: var(--green); }
+
+    /* ══════════════════════════════════════════════════════
+       PROTEIN
+    ══════════════════════════════════════════════════════ */
+    .protein {
+      padding: 128px 0;
+      background: linear-gradient(180deg, var(--deep), var(--obsidian));
+    }
+    .protein-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 96px; align-items: center;
+    }
+    .protein-h { font-size: clamp(36px, 3.8vw, 56px); margin: 16px 0 20px; }
+    .protein-body { font-size: 16px; line-height: 1.72; color: var(--muted-lt); margin-bottom: 34px; }
+
+    .report {
+      background: rgba(13,18,25,0.92);
+      border: 1px solid var(--border);
+      border-radius: 20px; padding: 30px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.35);
+    }
+    .report-hd {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 24px; padding-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+    }
+    .report-title {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700; font-size: 14px;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted-lt);
+    }
+    .badge-warn {
+      padding: 4px 10px;
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.25);
+      border-radius: 100px;
+      font-size: 11px; font-weight: 600;
+      color: var(--red); font-family: 'DM Mono', monospace;
+    }
+
+    .m-rows { display: flex; flex-direction: column; gap: 16px; margin-bottom: 20px; }
+    .m-hd {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 7px;
+    }
+    .m-name { font-size: 13px; font-weight: 600; color: var(--white); }
+    .m-info { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--muted); }
+    .m-track {
+      height: 5px; background: rgba(255,255,255,0.06);
+      border-radius: 3px; overflow: hidden;
+    }
+    .m-fill { height: 100%; border-radius: 3px; }
+
+    .report-footer {
+      padding-top: 14px; border-top: 1px solid var(--border);
+      font-size: 11px; font-family: 'DM Mono', monospace;
+      color: var(--muted);
+    }
+
+    /* ══════════════════════════════════════════════════════
+       CTA
+    ══════════════════════════════════════════════════════ */
+    .cta {
+      padding: 160px 0; text-align: center; position: relative;
+    }
+    .cta::before {
+      content: ''; position: absolute;
+      top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 900px; height: 500px;
+      background: radial-gradient(ellipse,
+        rgba(34,197,94,0.055) 0%,
+        rgba(59,130,246,0.04) 40%,
+        transparent 70%);
+      pointer-events: none;
+    }
+    .cta-h { font-size: clamp(50px, 5.5vw, 82px); margin-bottom: 22px; }
+    .cta-sub {
+      font-size: 18px; color: var(--muted-lt);
+      line-height: 1.65; max-width: 480px;
+      margin: 0 auto 50px;
+    }
+    .cta-actions { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; }
+
+    /* ══════════════════════════════════════════════════════
+       FOOTER
+    ══════════════════════════════════════════════════════ */
+    .footer {
+      padding: 52px 0 36px;
+      border-top: 1px solid var(--border);
+    }
+    .footer-inner {
+      display: flex; align-items: center;
+      justify-content: space-between; flex-wrap: wrap; gap: 20px;
+    }
+    .footer-logo img {
+      height: 34px;
+      mix-blend-mode: screen;
+      filter: brightness(0.82) contrast(1.05);
+    }
+    .footer-links { display: flex; gap: 28px; list-style: none; }
+    .footer-links a {
+      font-size: 12px; color: var(--muted); text-decoration: none;
+      letter-spacing: 0.04em; transition: color 0.2s;
+    }
+    .footer-links a:hover { color: var(--white); }
+    .footer-copy {
+      font-size: 11px; color: var(--muted);
+      font-family: 'DM Mono', monospace;
+    }
+
+    /* ══════════════════════════════════════════════════════
+       RESPONSIVE
+    ══════════════════════════════════════════════════════ */
+    @media (max-width: 1024px) {
+      .hero-inner { grid-template-columns: 1fr; gap: 60px; }
+      .phone-col { display: none; }
+      .problem-grid, .athlete-grid, .protein-grid { grid-template-columns: 1fr; gap: 60px; }
+      .recovery-layout { grid-template-columns: 1fr; }
+      .callouts { flex-direction: row; flex-wrap: wrap; }
+      .steps { grid-template-columns: repeat(2, 1fr); gap: 40px; }
+      .steps::before { display: none; }
+      .stats-grid { grid-template-columns: 1fr; }
+      .st { border-right: none; border-bottom: 1px solid var(--border); }
+      .st:last-child { border-bottom: none; }
+    }
+    @media (max-width: 768px) {
+      .nav { padding: 0 24px; }
+      .nav-links { display: none; }
+      .wrap { padding: 0 24px; }
+      .hero-inner { padding: 0 24px; }
+      .feat-grid { grid-template-columns: 1fr; }
+      .steps { grid-template-columns: 1fr; }
+      .hero-stats { flex-direction: column; gap: 16px; }
+      .h-stat { border-right: none; padding: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── NAV ──────────────────────────────────────────────── -->
+<nav class="nav" id="nav">
+  <a href="#" class="nav-logo">
+    <img src="brand_assets/logo.png" alt="Kairos">
+  </a>
+  <ul class="nav-links">
+    <li><a href="#recovery">Recovery</a></li>
+    <li><a href="#hiw">How It Works</a></li>
+    <li><a href="#features">Features</a></li>
+  </ul>
+  <a href="#cta" class="btn btn-green">Join Waitlist</a>
+</nav>
+
+<!-- ─── HERO ──────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-ambient"></div>
+
+  <div class="hero-inner">
+    <div>
+      <div class="hero-badge rv">
+        <span class="hero-badge-dot"></span>
+        Now in Closed Beta
+      </div>
+
+      <h1 class="hero-h1 rv d1">
+        Your Muscles<br>Are Talking.<br>
+        <span class="g">Are You Listening?</span>
+      </h1>
+
+      <p class="hero-sub rv d2">
+        Kairos gives you a real-time 3D view of every muscle's recovery state — so you train with precision, not guesswork. Never overtrain. Never under-recover.
+      </p>
+
+      <div class="hero-actions rv d3">
+        <a href="#cta" class="btn btn-green">Get Early Access</a>
+        <a href="#recovery" class="btn btn-ghost">See How It Works</a>
+      </div>
+
+      <div class="hero-stats rv d4">
+        <div class="h-stat">
+          <div class="h-stat-num"><span data-count="87">0</span>%</div>
+          <div class="h-stat-lbl">Lifters Train<br>Under-Recovered</div>
+        </div>
+        <div class="h-stat">
+          <div class="h-stat-num">48h</div>
+          <div class="h-stat-lbl">Recovery Window<br>Most Ignore</div>
+        </div>
+        <div class="h-stat">
+          <div class="h-stat-num"><span data-count="3">0</span>×</div>
+          <div class="h-stat-lbl">Faster Gains w/<br>Recovery Data</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phone-col rv d2">
+      <div class="phone-glow"></div>
+      <div class="phone-float">
+        <div class="phone">
+          <div class="phone-island"></div>
+          <div class="phone-screen">
+            <img src="brand_assets/model.png" alt="Kairos — Muscle Recovery Map">
+          </div>
+        </div>
+      </div>
+
+      <div class="p-tag pt-left">
+        <div class="p-tag-dot" style="background:#EF4444;box-shadow:0 0 8px rgba(239,68,68,0.55)"></div>
+        <div>
+          <div class="p-tag-title">Chest — Fatigued</div>
+          <div class="p-tag-sub">Rest 18h more</div>
+        </div>
+      </div>
+
+      <div class="p-tag pt-right">
+        <div class="p-tag-dot" style="background:#22C55E;box-shadow:0 0 8px rgba(34,197,94,0.55)"></div>
+        <div>
+          <div class="p-tag-title">Quads — Ready</div>
+          <div class="p-tag-sub">100% Recovered</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── STATS BAR ─────────────────────────────────────────── -->
+<div class="stats-bar">
+  <div class="wrap">
+    <div class="stats-grid">
+      <div class="st rv">
+        <div class="st-num"><span data-count="87">0</span>%</div>
+        <p class="st-desc">of gym-goers train on insufficiently recovered muscles — without knowing it</p>
+      </div>
+      <div class="st rv d1">
+        <div class="st-num">48–72<span style="font-size:0.42em;color:var(--muted-lt);vertical-align:super">hrs</span></div>
+        <p class="st-desc">recovery window most athletes completely ignore, causing plateaus and injury</p>
+      </div>
+      <div class="st rv d2">
+        <div class="st-num"><span data-count="31">0</span>%</div>
+        <p class="st-desc">faster muscle adaptation when training aligns with real recovery readiness data</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── PROBLEM ───────────────────────────────────────────── -->
+<section class="problem">
+  <div class="wrap">
+    <div class="problem-grid">
+      <div>
+        <div class="label rv">The Problem</div>
+        <h2 class="sh problem-h rv d1">You're Training Blind.</h2>
+        <p class="problem-body rv d2">
+          Every serious athlete tracks reps, sets, and macros. But nobody tracks what actually drives progress — real-time muscle recovery state. You're making critical training decisions based on gut feel alone.
+        </p>
+        <div class="pcards rv d3">
+          <div class="pcard">
+            <div class="pcard-icon">🔥</div>
+            <div>
+              <div class="pcard-title">Overtraining Without Knowing</div>
+              <div class="pcard-desc">Returning to a muscle before it's recovered destroys gains and raises injury risk by up to 60%</div>
+            </div>
+          </div>
+          <div class="pcard">
+            <div class="pcard-icon">📉</div>
+            <div>
+              <div class="pcard-title">Wasted Sessions</div>
+              <div class="pcard-desc">Training a fatigued muscle delivers only 40–60% of the stimulus of training a recovered one</div>
+            </div>
+          </div>
+          <div class="pcard">
+            <div class="pcard-icon">🥩</div>
+            <div>
+              <div class="pcard-title">Protein Timing Missed</div>
+              <div class="pcard-desc">The anabolic window is real — most athletes miss optimal intake timing by hours</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="problem-img rv d1">
+        <img src="brand_assets/human%20images/man%20workout.png" alt="Athlete training">
+        <div class="problem-img-badge">
+          <div class="dot"></div>
+          <div>
+            <div class="bdg-text">Chest: Undertrained</div>
+            <div class="bdg-sub">24% recovered · Training now</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── RECOVERY SYSTEM ───────────────────────────────────── -->
+<section class="recovery" id="recovery">
+  <div class="wrap">
+    <div class="recovery-head">
+      <div class="label rv" style="justify-content:center">Recovery Intelligence</div>
+      <h2 class="sh rv d1" style="font-size:clamp(42px,4.5vw,66px);margin-top:16px">
+        See Every Muscle.<br>Know Every State.
+      </h2>
+      <p class="rv d2">
+        Kairos maps your exact recovery status onto a 3D anatomical model — color-coded in real time, updated after every workout and meal.
+      </p>
+    </div>
+
+    <div class="recovery-layout">
+      <div class="callouts rv">
+        <div class="callout" style="border-color:rgba(239,68,68,0.25)">
+          <div class="c-dot" style="background:#EF4444;box-shadow:0 0 10px rgba(239,68,68,0.5)"></div>
+          <div>
+            <div class="c-label">Freshly Worked</div>
+            <div class="c-sub">0–30% recovered</div>
+          </div>
+        </div>
+        <div class="callout" style="border-color:rgba(249,115,22,0.25)">
+          <div class="c-dot" style="background:#F97316;box-shadow:0 0 10px rgba(249,115,22,0.5)"></div>
+          <div>
+            <div class="c-label">Recovering</div>
+            <div class="c-sub">31–60% recovered</div>
+          </div>
+        </div>
+        <div class="callout" style="border-color:rgba(132,204,22,0.25)">
+          <div class="c-dot" style="background:#84CC16;box-shadow:0 0 10px rgba(132,204,22,0.5)"></div>
+          <div>
+            <div class="c-label">Nearly Ready</div>
+            <div class="c-sub">61–85% recovered</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="recovery-img rv d1">
+        <img src="brand_assets/model.png" alt="Kairos 3D Muscle Recovery Model">
+      </div>
+
+      <div class="callouts rv d2">
+        <div class="callout" style="border-color:rgba(34,197,94,0.25)">
+          <div class="c-dot" style="background:#22C55E;box-shadow:0 0 10px rgba(34,197,94,0.5)"></div>
+          <div>
+            <div class="c-label">Fully Recovered</div>
+            <div class="c-sub">86–100% ready</div>
+          </div>
+        </div>
+        <div class="callout">
+          <div class="c-dot" style="background:#94A3B8;box-shadow:0 0 8px rgba(148,163,184,0.3)"></div>
+          <div>
+            <div class="c-label">Neutral / Rest</div>
+            <div class="c-sub">No recent activity</div>
+          </div>
+        </div>
+        <div class="callout" style="border-color:rgba(59,130,246,0.25)">
+          <div class="c-dot" style="background:#3B82F6;box-shadow:0 0 10px rgba(59,130,246,0.5)"></div>
+          <div>
+            <div class="c-label">Overall Score</div>
+            <div class="c-sub">67% today — Good</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── HOW IT WORKS ──────────────────────────────────────── -->
+<section class="hiw" id="hiw">
+  <div class="wrap">
+    <div class="hiw-head">
+      <div class="label rv" style="justify-content:center">The Loop</div>
+      <h2 class="sh rv d1" style="font-size:clamp(36px,3.5vw,58px);margin-top:16px">
+        Train. Track. Recover. Repeat.
+      </h2>
+    </div>
+    <div class="steps">
+      <div class="step rv">
+        <div class="step-num">💪</div>
+        <div class="step-title">Log Your Workout</div>
+        <div class="step-desc">Tag exercises to muscle groups. Kairos automatically marks what you trained and at what intensity.</div>
+      </div>
+      <div class="step rv d1">
+        <div class="step-num">🧬</div>
+        <div class="step-title">AI Calculates Recovery</div>
+        <div class="step-desc">Algorithms factor volume, intensity, sleep, and nutrition to compute per-muscle recovery percentage.</div>
+      </div>
+      <div class="step rv d2">
+        <div class="step-num">🫀</div>
+        <div class="step-title">See Your Body Map</div>
+        <div class="step-desc">Rotate a 3D anatomical model color-coded in real time. Full picture. No guessing. Just data.</div>
+      </div>
+      <div class="step rv d3">
+        <div class="step-num">🎯</div>
+        <div class="step-title">Train the Right Muscles</div>
+        <div class="step-desc">Daily recommendations for which muscle groups to train for peak stimulus and zero injury risk.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── FEATURES ──────────────────────────────────────────── -->
+<section class="features" id="features">
+  <div class="wrap">
+    <div class="features-head">
+      <div class="label rv" style="justify-content:center">What's Inside</div>
+      <h2 class="sh rv d1" style="font-size:clamp(36px,3.5vw,58px);margin-top:16px">
+        Built for Athletes.<br>Powered by Intelligence.
+      </h2>
+    </div>
+    <div class="feat-grid">
+      <div class="feat fb rv">
+        <div class="feat-icon">🫁</div>
+        <div class="feat-title">3D Recovery Map</div>
+        <div class="feat-desc">A rotatable anatomical body model with per-muscle color coding. See exactly what's recovered, fatigued, or overtrained — at a single glance.</div>
+      </div>
+      <div class="feat fr rv d1">
+        <div class="feat-icon">⚡</div>
+        <div class="feat-title">Recovery Intelligence</div>
+        <div class="feat-desc">Science-backed algorithms calculate recovery rates using workout volume, intensity, sleep quality, and meal timing — not generic 48-hour timelines.</div>
+      </div>
+      <div class="feat fo rv d2">
+        <div class="feat-icon">🥩</div>
+        <div class="feat-title">Protein Timing Engine</div>
+        <div class="feat-desc">Kairos maps protein intake to the muscles you actually trained. Get per-muscle deficit warnings and optimal timing based on your recovery state.</div>
+      </div>
+      <div class="feat fg rv d3">
+        <div class="feat-icon">📊</div>
+        <div class="feat-title">Smart Training Planner</div>
+        <div class="feat-desc">Daily training recommendations based on real recovery data. Stop wasting sessions on muscles that aren't ready to grow.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── ATHLETE ────────────────────────────────────────────── -->
+<section class="athlete">
+  <div class="wrap">
+    <div class="athlete-grid">
+      <div class="athlete-img-wrap rv">
+        <img src="brand_assets/human%20images/women%20workout.png" alt="Serious athlete">
+      </div>
+      <div class="rv d1">
+        <div class="label" style="margin-bottom:20px">Built for Serious Athletes</div>
+        <h2 class="sh athlete-q">
+          Train Like Your Body Has a<br>
+          <span class="hi">Control Panel.</span>
+        </h2>
+        <p class="athlete-body">
+          Whether you're a competitive powerlifter, a physique athlete, or someone chasing their personal best — Kairos gives you the recovery intelligence that separates disciplined athletes from burned-out ones.
+        </p>
+        <div class="chips">
+          <span class="chip">Powerlifting</span>
+          <span class="chip">Bodybuilding</span>
+          <span class="chip">CrossFit</span>
+          <span class="chip">Physique</span>
+          <span class="chip">Sports Performance</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── PROTEIN ────────────────────────────────────────────── -->
+<section class="protein">
+  <div class="wrap">
+    <div class="protein-grid">
+      <div class="rv">
+        <div class="label" style="margin-bottom:18px">Nutrition Intelligence</div>
+        <h2 class="sh protein-h">Your Muscles Know<br>What They Need.</h2>
+        <p class="protein-body">
+          Kairos doesn't just track protein — it maps intake to the muscles you trained. Get per-muscle deficit warnings and optimal timing windows based on your current recovery state.
+        </p>
+        <a href="#cta" class="btn btn-blue">Get Early Access</a>
+      </div>
+
+      <div class="rv d1">
+        <div class="report">
+          <div class="report-hd">
+            <span class="report-title">Recovery Report · Today</span>
+            <span class="badge-warn">⚠ Deficit</span>
+          </div>
+          <div class="m-rows">
+            <div>
+              <div class="m-hd">
+                <span class="m-name">Chest</span>
+                <span class="m-info" style="color:#EF4444">24% recovered · needs 38g</span>
+              </div>
+              <div class="m-track">
+                <div class="m-fill" style="width:24%;background:linear-gradient(90deg,#EF4444,#F97316)"></div>
+              </div>
+            </div>
+            <div>
+              <div class="m-hd">
+                <span class="m-name">Triceps</span>
+                <span class="m-info" style="color:#F97316">48% recovered · needs 22g</span>
+              </div>
+              <div class="m-track">
+                <div class="m-fill" style="width:48%;background:linear-gradient(90deg,#F97316,#EAB308)"></div>
+              </div>
+            </div>
+            <div>
+              <div class="m-hd">
+                <span class="m-name">Quads</span>
+                <span class="m-info" style="color:#22C55E">96% recovered · on target</span>
+              </div>
+              <div class="m-track">
+                <div class="m-fill" style="width:96%;background:linear-gradient(90deg,#22C55E,#34D399)"></div>
+              </div>
+            </div>
+            <div>
+              <div class="m-hd">
+                <span class="m-name">Back</span>
+                <span class="m-info" style="color:#84CC16">74% recovered · needs 14g</span>
+              </div>
+              <div class="m-track">
+                <div class="m-fill" style="width:74%;background:linear-gradient(90deg,#84CC16,#22C55E)"></div>
+              </div>
+            </div>
+          </div>
+          <div class="report-footer">
+            Next protein window: <span style="color:var(--orange)">in 1h 22min</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── CTA ───────────────────────────────────────────────── -->
+<section class="cta" id="cta">
+  <div class="wrap">
+    <div class="label rv" style="justify-content:center;margin-bottom:26px">Early Access</div>
+    <h2 class="sh cta-h rv d1">
+      Stop Guessing.<br>
+      <span style="background:linear-gradient(90deg,#3B82F6,#22C55E);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">
+        Start Recovering.
+      </span>
+    </h2>
+    <p class="cta-sub rv d2">
+      Kairos is in closed beta. Join the waitlist and be the first to train with visual recovery intelligence.
+    </p>
+    <div class="cta-actions rv d3">
+      <a href="mailto:kx0main0acc8000@gmail.com?subject=Kairos%20Waitlist" class="btn btn-green" style="padding:14px 40px;font-size:15px">
+        Join the Waitlist
+      </a>
+      <a href="#recovery" class="btn btn-ghost" style="padding:14px 32px;font-size:15px">
+        See the App
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ─── FOOTER ─────────────────────────────────────────────── -->
+<footer class="footer">
+  <div class="wrap">
+    <div class="footer-inner">
+      <a href="#" class="footer-logo">
+        <img src="brand_assets/logo.png" alt="Kairos">
+      </a>
+      <ul class="footer-links">
+        <li><a href="#recovery">Recovery</a></li>
+        <li><a href="#hiw">How It Works</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#cta">Waitlist</a></li>
+      </ul>
+      <span class="footer-copy">© 2025 Kairos · All rights reserved</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // NAV scroll
+  const nav = document.getElementById('nav');
+  window.addEventListener('scroll', () => {
+    nav.classList.toggle('scrolled', window.scrollY > 60);
+  }, { passive: true });
+
+  // Scroll reveal
+  const revObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) { e.target.classList.add('in'); revObs.unobserve(e.target); }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -48px 0px' });
+
+  document.querySelectorAll('.rv').forEach(el => revObs.observe(el));
+
+  // Hero reveals immediately on load
+  document.querySelectorAll('.hero .rv').forEach((el, i) => {
+    setTimeout(() => el.classList.add('in'), 80 + i * 130);
+  });
+
+  // Counter animation
+  function countUp(el, target, dur) {
+    dur = dur || 1600;
+    let start = null;
+    const tick = (ts) => {
+      if (!start) start = ts;
+      const p = Math.min((ts - start) / dur, 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(ease * target);
+      if (p < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+
+  const cntObs = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const t = parseInt(e.target.dataset.count);
+        if (!isNaN(t)) countUp(e.target, t);
+        cntObs.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.6 });
+
+  document.querySelectorAll('[data-count]').forEach(el => cntObs.observe(el));
+
+  // Phone 3D tilt on mousemove
+  const phoneFloat = document.querySelector('.phone-float');
+  if (phoneFloat) {
+    document.addEventListener('mousemove', (e) => {
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+      const rx = ((e.clientY - cy) / cy) * -5;
+      const ry = ((e.clientX - cx) / cx) * 6;
+      phoneFloat.style.transform = `perspective(900px) rotateX(${rx}deg) rotateY(${ry}deg)`;
+    });
+    document.addEventListener('mouseleave', () => {
+      phoneFloat.style.transform = '';
+    });
+  }
+</script>
+</body>
+</html>
